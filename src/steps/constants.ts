@@ -6,75 +6,73 @@ import {
 
 export const Steps = {
   ACCOUNT: 'fetch-account',
-  USERS: 'fetch-users',
-  GROUPS: 'fetch-groups',
-  GROUP_USER_RELATIONSHIPS: 'build-user-group-relationships',
+  BUILD_ACCOUNT_PROJECT: 'build-account-project-relationship',
+  PIPELINE: 'fetch-pipelines',
+  PROJECT: 'fetch-projects',
+  WORKFLOW: 'fetch-workflows',
+  JOB: 'fetch-jobs',
 };
 
 export const Entities: Record<
-  'ACCOUNT' | 'GROUP' | 'USER',
+  'PROJECT' | 'WORKFLOW' | 'JOB' | 'PIPELINE' | 'ACCOUNT',
   StepEntityMetadata
 > = {
   ACCOUNT: {
     resourceName: 'Account',
-    _type: 'acme_account',
+    _type: 'semaphore_account',
     _class: ['Account'],
-    schema: {
-      properties: {
-        mfaEnabled: { type: 'boolean' },
-        manager: { type: 'string' },
-      },
-      required: ['mfaEnabled', 'manager'],
-    },
   },
-  GROUP: {
-    resourceName: 'UserGroup',
-    _type: 'acme_group',
-    _class: ['UserGroup'],
-    schema: {
-      properties: {
-        email: { type: 'string' },
-        logoLink: { type: 'string' },
-      },
-      required: ['email', 'logoLink'],
-    },
+  PROJECT: {
+    resourceName: 'Project',
+    _type: 'semaphore_project',
+    _class: ['Project'],
   },
-  USER: {
-    resourceName: 'User',
-    _type: 'acme_user',
-    _class: ['User'],
-    schema: {
-      properties: {
-        username: { type: 'string' },
-        email: { type: 'string' },
-        active: { type: 'boolean' },
-        firstName: { type: 'string' },
-      },
-      required: ['username', 'email', 'active', 'firstName'],
-    },
+  WORKFLOW: {
+    resourceName: 'Workflow',
+    _type: 'semaphore_workflow',
+    _class: ['Task'],
+  },
+  JOB: {
+    resourceName: 'Job',
+    _type: 'semaphore_job',
+    _class: ['Entity'],
+  },
+  PIPELINE: {
+    resourceName: 'Pipeline',
+    _type: 'semaphore_pipeline',
+    _class: ['Entity'],
   },
 };
 
 export const Relationships: Record<
-  'ACCOUNT_HAS_USER' | 'ACCOUNT_HAS_GROUP' | 'GROUP_HAS_USER',
+  | 'PROJECT_HAS_WORKFLOW'
+  | 'PIPELINE_HAS_JOB'
+  | 'PROJECT_HAS_PIPELINE'
+  | 'ACCOUNT_HAS_PROJECT',
   StepRelationshipMetadata
 > = {
-  ACCOUNT_HAS_USER: {
-    _type: 'acme_account_has_user',
+  PROJECT_HAS_WORKFLOW: {
+    _type: 'semaphore_project_has_workflow',
+    sourceType: Entities.PROJECT._type,
+    _class: RelationshipClass.HAS,
+    targetType: Entities.WORKFLOW._type,
+  },
+  ACCOUNT_HAS_PROJECT: {
+    _type: 'semaphore_account_has_project',
     sourceType: Entities.ACCOUNT._type,
     _class: RelationshipClass.HAS,
-    targetType: Entities.USER._type,
+    targetType: Entities.PROJECT._type,
   },
-  ACCOUNT_HAS_GROUP: {
-    _type: 'acme_account_has_group',
-    sourceType: Entities.ACCOUNT._type,
+  PROJECT_HAS_PIPELINE: {
+    _type: 'semaphore_project_has_pipeline',
+    sourceType: Entities.PROJECT._type,
     _class: RelationshipClass.HAS,
-    targetType: Entities.GROUP._type,
+    targetType: Entities.PIPELINE._type,
   },
-  GROUP_HAS_USER: {
-    _type: 'acme_group_has_user',
-    sourceType: Entities.GROUP._type,
+  PIPELINE_HAS_JOB: {
+    _type: 'semaphore_pipeline_has_job',
+    sourceType: Entities.PIPELINE._type,
     _class: RelationshipClass.HAS,
-    targetType: Entities.USER._type,
+    targetType: Entities.JOB._type,
   },
 };
