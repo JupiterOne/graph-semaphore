@@ -10,13 +10,13 @@ afterEach(async () => {
   await recording.stop();
 });
 
-test('fetch-account', async () => {
+test('fetch-workflow', async () => {
   recording = setupProjectRecording({
     directory: __dirname,
-    name: 'fetch-account',
+    name: 'fetch-workflow',
   });
 
-  const stepConfig = buildStepTestConfigForStep(Steps.ACCOUNT);
+  const stepConfig = buildStepTestConfigForStep(Steps.WORKFLOW);
   const stepResult = await executeStepWithDependencies(stepConfig);
   expect(stepResult).toMatchStepMetadata(stepConfig);
 });

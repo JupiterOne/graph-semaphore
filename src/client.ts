@@ -1,52 +1,116 @@
-import http from 'http';
-
-import { IntegrationProviderAuthenticationError } from '@jupiterone/integration-sdk-core';
+import fetch, { Response } from 'node-fetch';
+import {
+  IntegrationProviderAPIError,
+  IntegrationProviderAuthenticationError,
+} from '@jupiterone/integration-sdk-core';
+import { retry } from '@lifeomic/attempt';
+import * as parseLink from 'parse-link-header';
 
 import { IntegrationConfig } from './config';
-import { AcmeUser, AcmeGroup } from './types';
+import {
+  SemaphoreJob,
+  SemaphorePipeline,
+  SemaphorePipelineDetails,
+  SemaphoreProject,
+  SemaphoreWorkflow,
+} from './types';
 
 export type ResourceIteratee<T> = (each: T) => Promise<void> | void;
 
-/**
- * An APIClient maintains authentication state and provides an interface to
- * third party data APIs.
- *
- * It is recommended that integrations wrap provider data APIs to provide a
- * place to handle error responses and implement common patterns for iterating
- * resources.
- */
 export class APIClient {
   constructor(readonly config: IntegrationConfig) {}
+  private baseUri = `https://${this.config.orgName}.semaphoreci.com/api/v1alpha/`;
+  private withBaseUri = (path: string) => `${this.baseUri}${path}`;
 
-  public async verifyAuthentication(): Promise<void> {
-    // TODO make the most light-weight request possible to validate
-    // authentication works with the provided credentials, throw an err if
-    // authentication fails
-    const request = new Promise<void>((resolve, reject) => {
-      http.get(
-        {
-          hostname: 'localhost',
-          port: 443,
-          path: '/api/v1/some/endpoint?limit=1',
-          agent: false,
-          timeout: 10,
+  private checkStatus = (response: Response) => {
+    if (response.ok) {
+      return response;
+    } else {
+      throw new IntegrationProviderAPIError(response);
+    }
+  };
+
+  private async request(
+    uri: string,
+    method: 'GET' | 'HEAD' = 'GET',
+  ): Promise<{ next: string; res: any }> {
+    try {
+      const options = {
+        method,
+        headers: {
+          Authorization: `Token ${this.config.apiToken}`,
         },
-        (res) => {
-          if (res.statusCode !== 200) {
-            reject(new Error('Provider authentication failed'));
-          } else {
-            resolve();
-          }
+      };
+
+      // Handle rate-limiting
+      const response = await retry(
+        async () => {
+          const res: Response = await fetch(uri, options);
+          this.checkStatus(res);
+          return res;
+        },
+        {
+          delay: 5000,
+          maxAttempts: 10,
+          handleError: (err, context) => {
+            if (
+              err.statusCode !== 429 ||
+              ([500, 502, 503].includes(err.statusCode) &&
+                context.attemptNum > 1)
+            )
+              context.abort();
+          },
         },
       );
-    });
 
+      const parsed = parseLink.default(response.headers.get('link'));
+      let nextLink;
+      if (parsed && parsed.next) {
+        nextLink = parsed.next.url;
+      }
+
+      return { res: await response.json(), next: nextLink };
+    } catch (err) {
+      throw new IntegrationProviderAPIError({
+        endpoint: uri,
+        status: err.status,
+        statusText: err.statusText,
+      });
+    }
+  }
+
+  private async paginatedRequest<T>(
+    uri: string,
+    iteratee: ResourceIteratee<T>,
+  ): Promise<void> {
     try {
-      await request;
+      let next: string | null = null;
+      do {
+        const { res, next: nextLink } = await this.request(next || uri, 'GET');
+
+        for (const resource of res) {
+          await iteratee(resource);
+        }
+        next = nextLink;
+      } while (next);
+    } catch (err) {
+      throw new IntegrationProviderAPIError({
+        cause: new Error(err.message),
+        endpoint: uri,
+        status: err.statusCode,
+        statusText: err.message,
+      });
+    }
+  }
+
+  public async verifyAuthentication(): Promise<void> {
+    const uri = this.withBaseUri('projects');
+    try {
+      await this.request(uri);
     } catch (err) {
       throw new IntegrationProviderAuthenticationError({
         cause: err,
-        endpoint: 'https://localhost/api/v1/some/endpoint?limit=1',
+        endpoint: uri,
         status: err.status,
         statusText: err.statusText,
       });
@@ -54,68 +118,79 @@ export class APIClient {
   }
 
   /**
-   * Iterates each user resource in the provider.
+   * Iterates each project resource in the provider.
    *
-   * @param iteratee receives each resource to produce entities/relationships
+   * @param iteratee receives each project to produce entities/relationships
    */
-  public async iterateUsers(
-    iteratee: ResourceIteratee<AcmeUser>,
+  public async iterateProjects(
+    iteratee: ResourceIteratee<SemaphoreProject>,
   ): Promise<void> {
-    // TODO paginate an endpoint, invoke the iteratee with each record in the
-    // page
-    //
-    // The provider API will hopefully support pagination. Functions like this
-    // should maintain pagination state, and for each page, for each record in
-    // the page, invoke the `ResourceIteratee`. This will encourage a pattern
-    // where each resource is processed and dropped from memory.
-
-    const users: AcmeUser[] = [
-      {
-        id: 'acme-user-1',
-        name: 'User One',
+    await this.paginatedRequest<SemaphoreProject>(
+      this.withBaseUri('projects'),
+      async (project) => {
+        await iteratee(project);
       },
-      {
-        id: 'acme-user-2',
-        name: 'User Two',
-      },
-    ];
-
-    for (const user of users) {
-      await iteratee(user);
-    }
+    );
   }
 
   /**
-   * Iterates each group resource in the provider.
+   * Iterates each workflow resource in the provider.
    *
-   * @param iteratee receives each resource to produce entities/relationships
+   * @param projectId project id
+   * @param iteratee receives each workflow to produce entities/relationships
    */
-  public async iterateGroups(
-    iteratee: ResourceIteratee<AcmeGroup>,
+  public async iterateWorkflows(
+    projectId: string,
+    iteratee: ResourceIteratee<SemaphoreWorkflow>,
   ): Promise<void> {
-    // TODO paginate an endpoint, invoke the iteratee with each record in the
-    // page
-    //
-    // The provider API will hopefully support pagination. Functions like this
-    // should maintain pagination state, and for each page, for each record in
-    // the page, invoke the `ResourceIteratee`. This will encourage a pattern
-    // where each resource is processed and dropped from memory.
-
-    const groups: AcmeGroup[] = [
-      {
-        id: 'acme-group-1',
-        name: 'Group One',
-        users: [
-          {
-            id: 'acme-user-1',
-          },
-        ],
+    await this.paginatedRequest<SemaphoreWorkflow>(
+      this.withBaseUri(`plumber-workflows?project_id=${projectId}`),
+      async (workflow) => {
+        await iteratee(workflow);
       },
-    ];
+    );
+  }
 
-    for (const group of groups) {
-      await iteratee(group);
-    }
+  /**
+   * Iterates each workflow resource in the provider.
+   *
+   * @param projectId project id
+   * @param iteratee receives each pipeline to produce entities/relationships
+   */
+  public async iteratePipelines(
+    projectId: string,
+    iteratee: ResourceIteratee<SemaphorePipeline>,
+  ): Promise<void> {
+    await this.paginatedRequest<SemaphorePipeline>(
+      this.withBaseUri(`pipelines?project_id=${projectId}`),
+      async (pipeline) => {
+        await iteratee(pipeline);
+      },
+    );
+  }
+
+  /**
+   * Iterates each pipeline resource in the provider.
+   *
+   * @param pipelineId pipeline id
+   */
+  public async getPipeline(
+    pipelineId: string,
+  ): Promise<SemaphorePipelineDetails> {
+    const { res } = await this.request(
+      this.withBaseUri(`pipelines/${pipelineId}?detailed=true`),
+    );
+    return res;
+  }
+
+  /**
+   * Iterates each job resource in the provider.
+   *
+   * @param jobId job id
+   */
+  public async getJob(jobId: string): Promise<SemaphoreJob> {
+    const { res } = await this.request(this.withBaseUri(`jobs/${jobId}`));
+    return res;
   }
 }
 

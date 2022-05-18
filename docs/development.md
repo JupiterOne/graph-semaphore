@@ -1,28 +1,19 @@
 # Development
 
-Add details here to give a brief overview of how to work with the provider APIs.
-Please reference any SDKs or API docs used to help build the integration here.
-
-## Prerequisites
-
-Supply details about software or tooling (like maybe Docker or Terraform) that
-is needed for development here.
-
-Please supply references to documentation that details how to install those
-dependencies here.
-
-Tools like Node.js and NPM are already covered in the [README](../README.md) so
-don't bother documenting that here.
+This integration focuses on [Semaphore Ci](https://semaphoreci.com/) and is
+using [Semaphore CI API](https://docs.semaphoreci.com/reference/api-v1alpha/)
+for interacting with the Semaphore CI resources.
 
 ## Provider account setup
 
-Please provide information about the steps needed to create an account with a
-provider. Images and references to a provider's documentation is very helpful
-for new developers picking up your work.
+### In Semaphore CI
+
+1. In your organization, go to profile settings.
+2. Copy your API token
 
 ## Authentication
 
-Supply details here for information on how to authenticate with a provider so
-that developers have an idea of what's needed to hit APIs. It may be useful to
-provide explanations for each value specified in the
-[`IntegrationInstanceConfigFieldMap`](../src/config.ts).
+Provide the `API_TOKEN`, and `ORG_NAME` to the `.env`. You can use
+[`.env.example`](../.env.example) as a reference.
+
+The API token will be used to authorize requests.
