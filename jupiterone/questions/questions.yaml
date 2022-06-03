@@ -14,5 +14,4 @@ questions:
       RETURN
          job.displayName,job.startedOn,job.finishedOn,result.resultReason
   tags:
-  - semaphore
-  
+  - Semaphore 
