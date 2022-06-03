@@ -1,15 +1,18 @@
 ---
-sourceId: managed:template
+sourceId: managed:semaphore
 integrationDefinitionId: '${integration_definition_id}'
-questions: []
-  # - id: integration-question-template-replace-me
-  #   title: What kinds of questions will this integration support?
-  #   description:
-  #     TODO Every integration should contribute questions! Please be carefule
-  #     to replace this before deploying the integration to JupiterOne.
-  #   queries:
-  #     - name: good
-  #       query: |
-  #         find * with _integrationDefinitionId = '${integration_definition_id}'
-  #   tags:
-  #     - template
+questions: 
+- id: managed-question-semaphore-pipeline-failed-jobs
+  title: Which semaphore pipeline jobs have failed?
+  description: Returns Semaphore pipeline failed jobs.
+  queries:
+  - name: Semaphore pipeline failed job      
+    resultsAre: bad
+    query: |
+      FIND semaphore_pipeline AS result
+        THAT HAS semaphore_job WITH state ~= "FINISHED" AND result !~= "PASSED" AS job
+      RETURN
+         job.displayName,job.startedOn,job.finishedOn,result.resultReason
+  tags:
+  - semaphore
+  
