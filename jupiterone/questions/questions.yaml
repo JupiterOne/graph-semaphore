@@ -4,9 +4,9 @@ integrationDefinitionId: '${integration_definition_id}'
 questions: 
 - id: managed-question-semaphore-pipeline-failed-jobs
   title: Which semaphore pipeline jobs have failed?
-  description: Returns Semaphore pipeline failed jobs.
+  description: Returns a list of Semaphore pipeline failed jobs.
   queries:
-  - name: Semaphore pipeline failed job      
+  - name: Semaphore pipeline failed jobs      
     resultsAre: bad
     query: |
       FIND semaphore_pipeline AS result
