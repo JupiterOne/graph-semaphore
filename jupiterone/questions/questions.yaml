@@ -12,6 +12,6 @@ questions:
       FIND semaphore_pipeline AS result
         THAT HAS semaphore_job WITH state ~= "FINISHED" AND result !~= "PASSED" AS job
       RETURN
-         job.displayName,job.startedOn,job.finishedOn,result.resultReason
+        job.displayName,job.startedOn,job.finishedOn,result.resultReason
   tags:
   - semaphore 
