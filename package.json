@@ -2,6 +2,10 @@
   "name": "@jupiterone/graph-semaphore",
   "version": "1.0.0",
   "description": "A JupiterOne Integration for ingesting data of the Semaphore",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JupiterOne/graph-semaphore"
+  },
   "license": "MPL-2.0",
   "main": "src/index.js",
   "types": "src/index.d.ts",
